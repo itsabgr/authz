@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+type AuthorizationResult struct {
+	User      string     `json:"user"`
+	Relation  string     `json:"relation"`
+	Entity    string     `json:"entity"`
+	ExpireAt  *time.Time `json:"expire_at"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
 var _ http.Handler = &Server{}
 
 type Server struct {
@@ -75,13 +83,7 @@ func (serv *Server) checkHandler(writer http.ResponseWriter, request *http.Reque
 		writer.Header().Set("Expires", result.ExpireAt().Format(http.TimeFormat))
 	}
 	if request.Method != http.MethodHead {
-		responseText, err := json.MarshalIndent(struct {
-			User      string     `json:"user"`
-			Relation  string     `json:"relation"`
-			Entity    string     `json:"entity"`
-			ExpireAt  *time.Time `json:"expire_at"`
-			CreatedAt time.Time  `json:"created_at"`
-		}{
+		responseText, err := json.MarshalIndent(AuthorizationResult{
 			result.User(),
 			result.Relation(),
 			result.Entity(),
