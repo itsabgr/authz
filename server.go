@@ -2,8 +2,8 @@ package authz
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/itsabgr/authz/db"
+	"log"
 	"net/http"
 	"time"
 )
@@ -57,16 +57,17 @@ func (serv *Server) checkHandler(writer http.ResponseWriter, request *http.Reque
 	ctx, cancel := context.WithTimeout(request.Context(), time.Second*2)
 	defer cancel()
 
-	result, err := serv.database.Check(ctx, user, relation, entity)
+	n, err := serv.database.Check(ctx, user, relation, entity)
 
 	if err != nil {
+		log.Println("failed to check", err)
 		writer.Header().Set("Content-Type", "text/plain")
 		writer.Header().Set("Cache-Control", "public, max-age=5")
-		http.Error(writer, err.Error(), http.StatusInternalServerError)
+		http.Error(writer, "internal server errors", http.StatusInternalServerError)
 		return
 	}
 
-	if result == nil {
+	if n <= 0 {
 		writer.Header().Set("Content-Type", "text/plain")
 		writer.Header().Set("Cache-Control", "public, max-age=5")
 		http.Error(writer, "forbidden", http.StatusForbidden)
@@ -75,26 +76,9 @@ func (serv *Server) checkHandler(writer http.ResponseWriter, request *http.Reque
 
 	writer.WriteHeader(http.StatusOK)
 
-	writer.Header().Set("Content-Type", "application/json")
 	writer.Header().Set("Cache-Control", "public, max-age=1")
 	writer.Header().Set("Cache-Control", "public, max-age=1")
-	writer.Header().Set("Last-Modified", result.CreatedAt().Format(http.TimeFormat))
-	if result.ExpireAt() != nil {
-		writer.Header().Set("Expires", result.ExpireAt().Format(http.TimeFormat))
-	}
-	if request.Method != http.MethodHead {
-		responseText, err := json.MarshalIndent(AuthorizationResult{
-			result.User(),
-			result.Relation(),
-			result.Entity(),
-			result.ExpireAt(),
-			result.CreatedAt(),
-		}, "\n", "\t")
-		if err != nil {
-			panic(err)
-		}
-		_, _ = writer.Write(responseText)
-	}
+
 }
 
 func (serv *Server) init() {
